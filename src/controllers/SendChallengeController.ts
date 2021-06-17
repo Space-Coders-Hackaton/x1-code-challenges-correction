@@ -8,9 +8,9 @@ export class SendChallengeController {
     const { challenge_id, repository_url } = request.body;
 
     try {
-      const testResults = await sendChallenge.execute({ challenge_id, repository_url });
+      await sendChallenge.execute({ challenge_id, repository_url });
     
-      return response.json(testResults);
+      return response.status(204).send();
     } catch (err) {
       return response.status(400).json({ error: err.message })
     }
