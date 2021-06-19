@@ -5,10 +5,24 @@ const sendChallenge = new SendChallengeService();
 
 export class SendChallengeController {
   async handle(request: Request, response: Response): Promise<Response> {
-    const { challenge_id, repository_url } = request.body;
+    const {
+      user_id,
+      repository_url,
+      challenge_slug,
+      difficulty,
+      technology,
+      template_url,
+    } = request.body;
 
     try {
-      await sendChallenge.execute({ challenge_id, repository_url });
+      await sendChallenge.execute({
+        user_id,
+        repository_url,
+        challenge_slug,
+        difficulty,
+        technology,
+        template_url,
+      });
     
       return response.status(204).send();
     } catch (err) {

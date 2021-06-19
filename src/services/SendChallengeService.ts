@@ -1,23 +1,30 @@
-import { v4 as uuid } from 'uuid';
-
 import { Queue } from '../lib/Queue';
 
 interface IRequest {
-  challenge_id: string;
+  user_id: string;
   repository_url: string;
+  challenge_slug: string;
+  difficulty: string;
+  technology: string;
+  template_url: string;
 }
 
 class SendChallengeService {
-  async execute({ repository_url }: IRequest): Promise<void> {
-    const uniqueID = uuid();
-    
-    const templatePath = `./tmp/template-${uniqueID}`;
-    const codePath = `./tmp/code-${uniqueID}`;
-    
+  async execute({
+    user_id,
+    repository_url,
+    challenge_slug,
+    difficulty,
+    technology,
+    template_url
+  }: IRequest): Promise<void> {
     await Queue.add('TestsCorrection', {
+      user_id,
       repository_url,
-      templatePath,
-      codePath
+      challenge_slug,
+      difficulty,
+      technology,
+      template_url
     });
   }
 }

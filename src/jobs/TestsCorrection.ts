@@ -1,15 +1,20 @@
 import rimraf from 'rimraf';
-import { promises as fs } from 'fs';
 import { runCLI } from 'jest';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import { v4 as uuid } from 'uuid';
+import { promises as fs } from 'fs';
+import axios from 'axios';
 
 import { downloadRepo } from '../utils/downloadRepo';
 
 interface IData {
+  user_id: string;
   repository_url: string;
-  templatePath: string;
-  codePath: string;
+  challenge_slug: string;
+  difficulty: string;
+  technology: string;
+  template_url: string;
 }
 
 const runCommand = promisify(exec);
@@ -21,34 +26,39 @@ const TestsCorrection = {
     attempts: 2
   },
   async handle({ data }) {
-    const { repository_url, templatePath, codePath } = data as IData;    
+    const {
+      user_id,
+      repository_url,
+      challenge_slug,
+      difficulty,
+      technology,
+      template_url
+    } = data as IData;  
+    const uniqueID = uuid();    
+    
+    const templatePath = `./tmp/template-${uniqueID}`;
+    const codePath = `./tmp/code-${uniqueID}`;
 
-    // Download template repository
     await downloadRepo({
-      repoURL: 'https://github.com/Space-Coders-Hackaton/challenge-template',
+      repoURL: template_url,
       destination: templatePath
     });
 
-    // Download user repository
     await downloadRepo({
       repoURL: repository_url,
       destination: codePath
     });
 
-    // Delete jest config from user repository
     await deleteFolder(`${codePath}/src/__tests__`);
     await fs.unlink(`${codePath}/jest.config.js`);  
 
-    // Move jest config from template to user
     await fs.rename(`${templatePath}/src/__tests__`, `${codePath}/src/__tests__`);
     await fs.rename(`${templatePath}/jest.config.js`, `${codePath}/jest.config.js`);
 
     await deleteFolder(templatePath);
 
-    // Join user directory and install dependencies
     await runCommand(`cd ${codePath} && yarn && yarn add jest@^26.6.3`)
 
-    // Run test suite
     const testResults = await runCLI({
       json: true,
       silent: true,
@@ -57,6 +67,18 @@ const TestsCorrection = {
     } as any, [codePath]);
 
     await deleteFolder(codePath);
+
+    const { numTotalTests, numPassedTests } = testResults.results;
+
+    await axios.post(`${process.env.API_URL}/corrections`, {
+      user_id,
+      challenge_slug,
+      difficulty,
+      technology,
+      total_tests: numTotalTests,
+      passed_tests: numPassedTests,
+      repository_url,
+    });
   }
 }
 
