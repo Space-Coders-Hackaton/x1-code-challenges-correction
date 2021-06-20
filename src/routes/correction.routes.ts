@@ -1,12 +1,15 @@
 import { Router } from 'express';
 
+import { checkAuthorizationToken } from '../middlewares/checkAuthorizationToken';
 import { SendChallengeService } from '../services/SendChallengeService';
 
-const challengesRouter = Router();
+const correctionRoutes = Router();
 
 const sendChallenge = new SendChallengeService();
 
-challengesRouter.post('/send', async (request, response) => {
+correctionRoutes.use(checkAuthorizationToken)
+
+correctionRoutes.post('/send', async (request, response) => {
   const {
     user_id,
     challenge_slug,
@@ -32,4 +35,4 @@ challengesRouter.post('/send', async (request, response) => {
   }
 });
 
-export { challengesRouter };
+export { correctionRoutes };
