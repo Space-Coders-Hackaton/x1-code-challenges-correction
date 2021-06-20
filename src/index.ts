@@ -9,6 +9,6 @@ app.use(express.json());
 
 app.use('/', challengesRouter);
 
-app.listen(3333, () => {
+app.listen(8080, () => {
   console.log('🚀 Server listening on PORT 3333!');
 });

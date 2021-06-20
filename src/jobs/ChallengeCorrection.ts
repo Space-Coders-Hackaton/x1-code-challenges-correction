@@ -1,5 +1,6 @@
 import rimraf from 'rimraf';
 import { runCLI } from 'jest';
+import { AggregatedResult } from '@jest/test-result';
 import { promisify } from 'util';
 import { exec } from 'child_process';
 import { v4 as uuid } from 'uuid';
@@ -8,6 +9,7 @@ import axios from 'axios';
 
 import { downloadRepo } from '../lib/downloadRepo';
 import { ICorrectionDTO } from '../dtos/ICorrectionDTO';
+import { fileExists } from '../lib/fileExists';
 
 const runCommand = promisify(exec);
 const deleteFolder = promisify(rimraf);
@@ -41,35 +43,46 @@ const ChallengeCorrection = {
       destination: codePath
     });
 
-    await deleteFolder(`${codePath}/src/__tests__`);
-    await fs.unlink(`${codePath}/jest.config.js`);  
+    const testsFolderExists = await fileExists(`${codePath}/src/__tests__`);
+    if(testsFolderExists) await deleteFolder(`${codePath}/src/__tests__`);
+    
+    const jestConfigsExists = await fileExists(`${codePath}/jest.config.js`);
+    if(jestConfigsExists) await fs.unlink(`${codePath}/jest.config.js`);  
 
     await fs.rename(`${templatePath}/src/__tests__`, `${codePath}/src/__tests__`);
     await fs.rename(`${templatePath}/jest.config.js`, `${codePath}/jest.config.js`);
 
+    const ORMConfigExists = await fileExists(`${templatePath}/ormconfig.json`);
+    if(ORMConfigExists) {
+      await fs.unlink(`${codePath}/ormconfig.json`);
+      await fs.rename(`${templatePath}/ormconfig.json`, `${codePath}/ormconfig.json`);
+    }
+
     await deleteFolder(templatePath);
 
-    await runCommand(`cd ${codePath} && yarn && yarn add jest@^26.6.3`)
+    await runCommand(`cd ${codePath} && yarn && yarn add jest@^26.6.3`);
 
-    const testResults = await runCLI({
+    runCLI({
       json: true,
       silent: true,
       reporters: [],
       testPathIgnorePatterns: ["/node_modules/", "/.next/"],
-    } as any, [codePath]);
+    } as any, [codePath]).then(async (success) => {
+      await deleteFolder(codePath);
 
-    await deleteFolder(codePath);
-
-    const { numTotalTests, numPassedTests } = testResults.results;
-
-    await axios.post(`${process.env.API_URL}/corrections`, {
-      user_id,
-      challenge_slug,
-      difficulty,
-      technology,
-      total_tests: numTotalTests,
-      passed_tests: numPassedTests,
-      repository_url,
+      const { numTotalTests, numPassedTests } = success.results;
+  
+      await axios.post(`${process.env.API_URL}/corrections`, {
+        user_id,
+        challenge_slug,
+        difficulty,
+        technology,
+        total_tests: numTotalTests,
+        passed_tests: numPassedTests,
+        repository_url,
+      });
+    }).catch(async () => {
+      await deleteFolder(codePath);
     });
   }
 }
